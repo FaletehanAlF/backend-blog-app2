@@ -4,7 +4,6 @@ const path = require("path");
 const router = express.Router();
 const db = require("../db");
 
-// Konfigurasi multer untuk upload gambar artikel (tahap 1: hanya POST /posts)
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, path.join(__dirname, "../uploads/"));
@@ -32,8 +31,6 @@ const upload = multer({
     limits: { fileSize: 2 * 1024 * 1024 }
 });
 
-// Wrapper agar error multer (file tidak valid / melebihi ukuran)
-// direspons sebagai JSON 400 yang jelas, dipakai di POST / dan PUT /:id
 function uploadSingle(req, res, next) {
     upload.single("image")(req, res, (err) => {
         if (err instanceof multer.MulterError) {
@@ -57,7 +54,6 @@ function uploadSingle(req, res, next) {
     });
 };
 
-// Menampilkan semua artikel
 router.get("/", (req, res) => {
     const sql = `
         SELECT
@@ -89,7 +85,6 @@ router.get("/", (req, res) => {
     });
 });
 
-// Menampilkan detail artikel
 router.get("/:id", (req, res) => {
     const { id } = req.params;
 
@@ -130,7 +125,6 @@ router.get("/:id", (req, res) => {
     });
 });
 
-// Menambahkan artikel
 router.post("/", uploadSingle, (req, res) => {
     const { title, content, category_id } = req.body || {};
 
@@ -175,7 +169,6 @@ router.post("/", uploadSingle, (req, res) => {
     );
 });
 
-// Mengubah artikel (mendukung JSON biasa maupun multipart saat ganti gambar)
 router.put("/:id", uploadSingle, (req, res) => {
     const { id } = req.params;
     const { title, content, image, category_id } = req.body || {};
@@ -187,8 +180,6 @@ router.put("/:id", uploadSingle, (req, res) => {
         });
     }
 
-    // Jika ada file baru dari multipart, pakai path baru.
-    // Jika tidak, pertahankan gambar lama yang dikirim client (bisa null).
     const rawImage = req.file ? `/uploads/${req.file.filename}` : image;
     const finalImage =
         rawImage === undefined || rawImage === "" ? null : rawImage;
@@ -225,7 +216,6 @@ router.put("/:id", uploadSingle, (req, res) => {
     );
 });
 
-// Menghapus artikel
 router.delete("/:id", (req, res) => {
     const { id } = req.params;
 

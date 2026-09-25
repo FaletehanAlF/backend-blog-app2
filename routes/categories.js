@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// Menampilkan semua kategori
 router.get("/", (req, res) => {
     const sql = "SELECT * FROM categories ORDER BY id DESC";
 
@@ -21,7 +20,6 @@ router.get("/", (req, res) => {
     });
 });
 
-// Menambahkan kategori
 router.post("/", (req, res) => {
     const { name } = req.body;
 
@@ -53,7 +51,6 @@ router.post("/", (req, res) => {
     });
 });
 
-// Mengubah kategori
 router.put("/:id", (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
@@ -89,7 +86,6 @@ router.put("/:id", (req, res) => {
     });
 });
 
-// Menghapus kategori
 router.delete("/:id", (req, res) => {
     const { id } = req.params;
 
