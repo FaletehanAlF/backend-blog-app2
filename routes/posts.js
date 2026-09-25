@@ -1,6 +1,61 @@
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
 const router = express.Router();
 const db = require("../db");
+
+// Konfigurasi multer untuk upload gambar artikel (tahap 1: hanya POST /posts)
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, path.join(__dirname, "../uploads/"));
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+
+const fileFilter = (req, file, cb) => {
+    const allowedExt = [".jpg", ".jpeg", ".png", ".webp"];
+    const allowedMime = ["image/jpeg", "image/png", "image/webp"];
+    const ext = path.extname(file.originalname).toLowerCase();
+
+    if (allowedExt.includes(ext) && allowedMime.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error("Format file tidak valid. Hanya jpg, jpeg, png, webp yang diizinkan"));
+    }
+};
+
+const upload = multer({
+    storage: storage,
+    fileFilter: fileFilter,
+    limits: { fileSize: 2 * 1024 * 1024 }
+});
+
+// Wrapper agar error multer (file tidak valid / melebihi ukuran)
+// direspons sebagai JSON 400 yang jelas, hanya dipakai di POST /
+function uploadSingle(req, res, next) {
+    upload.single("image")(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            if (err.code === "LIMIT_FILE_SIZE") {
+                return res.status(400).json({
+                    success: false,
+                    message: "Ukuran file maksimal 2 MB"
+                });
+            }
+            return res.status(400).json({
+                success: false,
+                message: err.message
+            });
+        } else if (err) {
+            return res.status(400).json({
+                success: false,
+                message: err.message
+            });
+        }
+        next();
+    });
+};
 
 // Menampilkan semua artikel
 router.get("/", (req, res) => {
@@ -76,8 +131,8 @@ router.get("/:id", (req, res) => {
 });
 
 // Menambahkan artikel
-router.post("/", (req, res) => {
-    const { title, content, image, category_id } = req.body;
+router.post("/", uploadSingle, (req, res) => {
+    const { title, content, category_id } = req.body || {};
 
     if (!title || !content || !category_id) {
         return res.status(400).json({
@@ -85,6 +140,8 @@ router.post("/", (req, res) => {
             message: "Title, content, dan category_id wajib diisi"
         });
     }
+
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
 
     const sql = `
         INSERT INTO posts
@@ -94,7 +151,7 @@ router.post("/", (req, res) => {
 
     db.query(
         sql,
-        [title, content, image || null, category_id],
+        [title, content, image, category_id],
         (err, result) => {
             if (err) {
                 return res.status(500).json({
@@ -110,7 +167,7 @@ router.post("/", (req, res) => {
                     id: result.insertId,
                     title,
                     content,
-                    image: image || null,
+                    image,
                     category_id
                 }
             });
