@@ -33,7 +33,7 @@ const upload = multer({
 });
 
 // Wrapper agar error multer (file tidak valid / melebihi ukuran)
-// direspons sebagai JSON 400 yang jelas, hanya dipakai di POST /
+// direspons sebagai JSON 400 yang jelas, dipakai di POST / dan PUT /:id
 function uploadSingle(req, res, next) {
     upload.single("image")(req, res, (err) => {
         if (err instanceof multer.MulterError) {
@@ -69,7 +69,7 @@ router.get("/", (req, res) => {
             categories.name AS category_name,
             posts.created_at
         FROM posts
-        JOIN categories
+        LEFT JOIN categories
             ON posts.category_id = categories.id
         ORDER BY posts.id DESC
     `;
@@ -103,7 +103,7 @@ router.get("/:id", (req, res) => {
             categories.name AS category_name,
             posts.created_at
         FROM posts
-        JOIN categories
+        LEFT JOIN categories
             ON posts.category_id = categories.id
         WHERE posts.id = ?
     `;
@@ -175,10 +175,10 @@ router.post("/", uploadSingle, (req, res) => {
     );
 });
 
-// Mengubah artikel
-router.put("/:id", (req, res) => {
+// Mengubah artikel (mendukung JSON biasa maupun multipart saat ganti gambar)
+router.put("/:id", uploadSingle, (req, res) => {
     const { id } = req.params;
-    const { title, content, image, category_id } = req.body;
+    const { title, content, image, category_id } = req.body || {};
 
     if (!title || !content || !category_id) {
         return res.status(400).json({
@@ -186,6 +186,12 @@ router.put("/:id", (req, res) => {
             message: "Title, content, dan category_id wajib diisi"
         });
     }
+
+    // Jika ada file baru dari multipart, pakai path baru.
+    // Jika tidak, pertahankan gambar lama yang dikirim client (bisa null).
+    const rawImage = req.file ? `/uploads/${req.file.filename}` : image;
+    const finalImage =
+        rawImage === undefined || rawImage === "" ? null : rawImage;
 
     const sql = `
         UPDATE posts
@@ -195,7 +201,7 @@ router.put("/:id", (req, res) => {
 
     db.query(
         sql,
-        [title, content, image || null, category_id, id],
+        [title, content, finalImage, category_id, id],
         (err, result) => {
             if (err) {
                 return res.status(500).json({
