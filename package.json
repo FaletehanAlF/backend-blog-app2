@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "node --watch app.js",
-    "test": "node --check app.js && node --check db.js && node --check routes/categories.js && node --check routes/posts.js && node --check utils/validate.js"
+    "test": "node --check app.js && node --check db.js && node --check routes/categories.js && node --check routes/posts.js && node --check utils/validate.js && node --check controllers/postsController.js && node --check controllers/categoriesController.js && node --check schemas/postSchema.js && node --check schemas/categorySchema.js && node --check middleware/validate.js"
   },
   "keywords": [
     "blog",
@@ -22,6 +22,7 @@
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "multer": "^2.4.0",
-    "mysql2": "^3.24.4"
+    "mysql2": "^3.24.4",
+    "zod": "^4.6.5"
   }
 }
