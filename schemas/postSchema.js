@@ -3,8 +3,6 @@ const { z } = require("zod");
 const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 20000;
 
-// Samakan dengan normalizeText di utils/validate.js:
-// collapse whitespace berlebih lalu trim.
 function normalizeTitle(value) {
     if (typeof value !== "string") {
         return value;
@@ -57,11 +55,25 @@ const imageField = z.preprocess(
     z.string().nullable().optional()
 );
 
+// Link gambar opsional (fitur "tempel link"). String kosong = tidak ada.
+// Validasi URL penuh dilakukan Zod; pengamanan download ada di controller.
+const imageUrlField = z.preprocess(
+    (value) => {
+        if (typeof value !== "string") {
+            return value;
+        }
+        const trimmed = value.trim();
+        return trimmed === "" ? undefined : trimmed;
+    },
+    z.string({ error: "Link gambar tidak valid" }).url("Link gambar tidak valid").nullable().optional()
+);
+
 const createPostSchema = z.object({
     title: titleField,
     content: contentField,
     category_id: categoryIdField,
-    image: imageField
+    image: imageField,
+    image_url: imageUrlField
 });
 
 // Behavior update saat ini sama dengan create: semua field wajib.

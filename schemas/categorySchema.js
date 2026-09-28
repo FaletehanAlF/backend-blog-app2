@@ -2,7 +2,6 @@ const { z } = require("zod");
 
 const MAX_NAME_LENGTH = 60;
 
-// Samakan dengan normalizeText di utils/validate.js.
 function normalizeName(value) {
     if (typeof value !== "string") {
         return value;

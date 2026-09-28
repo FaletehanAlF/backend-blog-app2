@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const db = require("../db");
 const { parseId, normalizeText, fail } = require("../utils/validate");
+const { downloadImageToUploads } = require("../utils/fetchImage");
 
 const uploadsDir = path.join(__dirname, "../uploads");
 
@@ -148,14 +149,27 @@ function getPostById(req, res) {
 }
 
 // Body sudah divalidasi Zod oleh middleware validate().
-// req.body: { title, content, category_id, image? }
+// req.body: { title, content, category_id, image?, image_url? }
+// Prioritas gambar: file upload > link gambar (image_url) > tanpa gambar.
 function createPost(req, res) {
     const title = req.body.title;
     const content = req.body.content;
     const categoryId = req.body.category_id;
+    const imageUrl = typeof req.body.image_url === "string" ? req.body.image_url.trim() : "";
 
-    categoryExists(categoryId, res, () => {
-        const image = req.file ? `/uploads/${req.file.filename}` : null;
+    categoryExists(categoryId, res, async () => {
+        let image = null;
+        try {
+            if (req.file) {
+                image = `/uploads/${req.file.filename}`;
+            } else if (imageUrl) {
+                image = await downloadImageToUploads(imageUrl, uploadsDir);
+            }
+        } catch (err) {
+            discardUpload(req.file);
+            console.error("Gagal memakai gambar dari link:", err.message);
+            return fail(res, 400, err.message || "Gagal mengunduh gambar dari link");
+        }
 
         const sql = `
             INSERT INTO posts
@@ -196,9 +210,10 @@ function updatePost(req, res) {
     const title = req.body.title;
     const content = req.body.content;
     const categoryId = req.body.category_id;
+    const imageUrl = typeof req.body.image_url === "string" ? req.body.image_url.trim() : "";
 
     categoryExists(categoryId, res, () => {
-        db.query("SELECT image FROM posts WHERE id = ?", [id], (findErr, rows) => {
+        db.query("SELECT image FROM posts WHERE id = ?", [id], async (findErr, rows) => {
             if (findErr) {
                 discardUpload(req.file);
                 console.error("Gagal mencari artikel:", findErr.message);
@@ -213,13 +228,21 @@ function updatePost(req, res) {
             const previousImage = rows[0].image;
 
             let image;
-            if (req.file) {
-                image = `/uploads/${req.file.filename}`;
-            } else if (Object.prototype.hasOwnProperty.call(req.body, "image")) {
-                const raw = req.body.image;
-                image = typeof raw === "string" && raw.trim() !== "" ? raw.trim() : null;
-            } else {
-                image = previousImage;
+            try {
+                if (req.file) {
+                    image = `/uploads/${req.file.filename}`;
+                } else if (imageUrl) {
+                    image = await downloadImageToUploads(imageUrl, uploadsDir);
+                } else if (Object.prototype.hasOwnProperty.call(req.body, "image")) {
+                    const raw = req.body.image;
+                    image = typeof raw === "string" && raw.trim() !== "" ? raw.trim() : null;
+                } else {
+                    image = previousImage;
+                }
+            } catch (err) {
+                discardUpload(req.file);
+                console.error("Gagal memakai gambar dari link:", err.message);
+                return fail(res, 400, err.message || "Gagal mengunduh gambar dari link");
             }
 
             const sql = `
